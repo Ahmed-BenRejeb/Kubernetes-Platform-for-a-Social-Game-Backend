@@ -1,8 +1,10 @@
 import { Game } from "src/game/game.entity";
-import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from "typeorm";
+import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from "typeorm";
 
 @Entity()
 @Unique(['secretCode', 'game'])
+@Unique(['nickname', 'game'])
+@Index(['game', 'isAlive'])
 export class Player {
   @PrimaryGeneratedColumn()
   id: number;
@@ -16,8 +18,8 @@ export class Player {
   @Column({ default: true })
   isAlive: boolean;
 
-  @ManyToOne(() => Game, game => game.players, { onDelete: 'CASCADE' })
-  game: Game;
+  @ManyToOne(() => Game, game => game.players, { nullable: true, onDelete: 'SET NULL' })
+  game: Game |  null;
 
 @ManyToOne(() => Player, { nullable: true, onDelete: 'SET NULL' })
 currentTarget: Player | null;

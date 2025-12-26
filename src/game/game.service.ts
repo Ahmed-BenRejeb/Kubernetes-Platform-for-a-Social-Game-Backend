@@ -23,11 +23,14 @@ private playerRepository: Repository<Player>,
   }
 
   async getGames() {
-    return this.gameRepository.find();
+    return this.gameRepository.find({
+        order: { createdAt: 'DESC' },
+        relations: ['winner', 'players'],
+    });
   }
   async getGameById(id: number) {
 
-    const game= await this.gameRepository.findOne({where:{id}});
+    const game= await this.gameRepository.findOne({where:{id}, relations: ['winner', 'players']});
     if (!game) {
         throw new NotFoundException('Game not found');
         }
@@ -84,14 +87,24 @@ private playerRepository: Repository<Player>,
   where: { game: { id: game.id }, isAlive: true },
 });
 
-    if (alivePlayers.length == 1) {
-        const game = await this.getGameOrFail(id);
+  if (alivePlayers.length !== 1) {
+    throw new BadRequestException(`Cannot finish game with ${alivePlayers.length} players alive`);
+  } 
         const winner = alivePlayers[0];
         game.status = GameStatus.FINISHED;
         game.finishedAt = new Date();
+        game.winner = winner;
         await this.gameRepository.save(game);
-        return { game, winner };
-    }
+        const players = await this.playerRepository.find({
+          where: { game: { id: game.id } },
+        });
+        for (const player of players) {
+            player.game = null;
+        }
+        await this.playerRepository.save(players);
+
+        return { game, winner};
+    
 
     }
     private async getGameOrFail(id: number): Promise<Game> {

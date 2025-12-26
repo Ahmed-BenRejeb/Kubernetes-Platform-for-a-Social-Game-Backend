@@ -43,6 +43,8 @@ finishGame(@Param('id', ParseIntPipe) id: number) {
 
 @Get(':id/result')
 getGameResult(@Param('id', ParseIntPipe) id: number) {
+    
+
   return this.gameService.getGameResult(id);
 }
 @Delete('')

@@ -25,15 +25,40 @@ export class PlayerService {
   });
   }
 
+  async changePlayerNickname( gameId: number|null, playerId: number, newNickname: string) {
+    const player = await this.playerRepository.findOne({ where: { id: playerId }, relations: ['game'] });
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+      if (player.game) {
+    const existingPlayer = await this.playerRepository.findOne({
+      where: { game: { id: player.game.id }, nickname: newNickname },
+    });
+    
+    if (existingPlayer && existingPlayer.id !== playerId) {
+      throw new BadRequestException('Nickname already taken in this game');
+    }
+  }
+    player.nickname = newNickname;
+    return this.playerRepository.save(player);
+  }
+    
+
   async joinGame(gameId: number, nickname: string) 
   {
   const game = await this.gameRepository.findOne({ where: { id: gameId } });
   if (!game) throw new NotFoundException('Game not found');
   if (game.status !== GameStatus.WAITING)
     throw new BadRequestException('Cannot join a game that has started');
-
+  const existingPlayer = await this.playerRepository.findOne({
+    where: { game: { id: gameId }, nickname },
+  });
+  if (existingPlayer) {
+    throw new BadRequestException('Nickname already taken in this game');
+  }
   let code: string = '';
     let exists = true;
+  
 while (exists) {
   code = Math.floor(100000 + Math.random() * 900000).toString();
   const existingPlayer = await this.playerRepository.findOne({ 
@@ -77,7 +102,7 @@ async killTarget(killerId: number, targetCode: string) {
   });
 
   if (!killer) throw new NotFoundException('Player not found');
-
+  if (!killer.game) throw new BadRequestException('Player is not in a game');
   const target = await this.playerRepository.findOne({
     where: { secretCode: targetCode, game: { id: killer.game.id } },
     relations: ['currentTarget'],
@@ -113,6 +138,7 @@ async killTarget(killerId: number, targetCode: string) {
   const game = killer.game;
   game.status = GameStatus.FINISHED;
   game.finishedAt = new Date();
+  game.winner = killer;
   await this.gameRepository.save(game);
 
   return {
@@ -120,6 +146,7 @@ async killTarget(killerId: number, targetCode: string) {
     winner: killer,
   };
 }
+  return { message: 'Target eliminated', killer, target };
 }
 
 
@@ -132,10 +159,15 @@ async reassignTargetsForDead(deadPlayerId: number) {
   for (const player of affectedPlayers) {
     if (!player.currentTarget) continue;
     let newTarget = player.currentTarget.currentTarget;
-
+    let visited = new Set<number>([player.id, deadPlayerId]);
     // Skip dead targets recursively
     while (newTarget && !newTarget.isAlive || newTarget?.secretCode===player.secretCode) {
-      newTarget = newTarget.currentTarget;
+        if (visited.has(newTarget.id)) {
+        newTarget = null; // Cycle detected
+        break;
+      }
+      visited.add(newTarget.id);
+        newTarget = newTarget.currentTarget;
     }
 
     player.currentTarget = newTarget || null;
@@ -174,6 +206,74 @@ async createStandalonePlayer(nickname: string) {
     relations: ['game', 'currentTarget'],
   });
   }
+
+  async getAlivePlayers(gameId: number): Promise<Player[]> {
+    const game = await this.gameRepository.findOne({ where: { id: gameId } });
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+    return this.playerRepository.find({
+    where: { game: { id: gameId }, isAlive: true },
+    relations: ['game', 'currentTarget'],
+  });
+  }
+
+  async getLeaderboard(gameId: number): Promise<Player[]> {
+    const game = await this.gameRepository.findOne({ where: { id: gameId } });
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+    return this.playerRepository.find({
+    where: { game: { id: gameId } },
+    order: { kills: 'DESC' },
+  });
+  }
+  async joinStandaloneGame(playerId: number, gameId: number) {
+  // Check if game exists and is joinable
+  const game = await this.gameRepository.findOne({ where: { id: gameId } });
+  if (!game) throw new NotFoundException('Game not found');
+  if (game.status !== GameStatus.WAITING)
+    throw new BadRequestException('Cannot join a game that has started');
+
+  // Check if player exists
+  const player = await this.playerRepository.findOne({ 
+    where: { id: playerId },
+    relations: ['game']
+  });
+  if (!player) throw new NotFoundException('Player not found');
+
+  // Check if player is already in a game
+  if (player.game) {
+    throw new BadRequestException('Player is already in a game');
+  }
+
+  // Check if nickname is unique in the target game
+  const existingPlayer = await this.playerRepository.findOne({
+    where: { game: { id: gameId }, nickname: player.nickname },
+  });
+  if (existingPlayer) {
+    throw new BadRequestException('Nickname already taken in this game');
+  }
+
+  // Generate unique secret code for this game
+  let code: string = '';
+  let exists = true;
+  
+  while (exists) {
+    code = Math.floor(100000 + Math.random() * 900000).toString();
+    const existingCode = await this.playerRepository.findOne({ 
+      where: { game: { id: gameId }, secretCode: code } 
+    });
+    exists = !!existingCode;
+  }
+
+  // Assign player to game
+  player.game = game;
+  player.secretCode = code;
+  player.isAlive = true;
+
+  return this.playerRepository.save(player);
+}
 
 
 
