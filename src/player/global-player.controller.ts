@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { PlayerService } from './player.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
@@ -31,4 +31,12 @@ export class GlobalPlayerController {
     ) {
         return this.playerService.changePlayerNickname(null, playerId, newNickname);
     }
+
+
+    @Delete('')
+        @ApiOperation({ summary: 'Delete all players ' })
+
+        deleteEveryone() {
+            return this.playerService.deleteEveryone();
+        }
 }

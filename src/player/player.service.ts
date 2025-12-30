@@ -274,6 +274,135 @@ async createStandalonePlayer(nickname: string) {
 
   return this.playerRepository.save(player);
 }
+  async deleteEveryone() {
+  const players = await this.playerRepository.find({ select: ['id'] });
+  if (players.length > 0) {
+    const ids = players.map(p => p.id);
+    await this.playerRepository.delete(ids);
+  }
+  return { message: 'All players deleted' };
+}
+
+
+
+private readonly PROXIMITY_THRESHOLD = 50; // 50 meters
+
+  // Update player location
+  async updateLocation(playerId: number, latitude: number, longitude: number) {
+    const player = await this.playerRepository.findOne({
+      where: { id: playerId },
+      relations: ['game', 'currentTarget'],
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    if (!player.game) {
+      throw new BadRequestException('Player is not in a game');
+    }
+
+    // Update location
+    player.latitude = latitude;
+    player.longitude = longitude;
+    player.lastLocationUpdate = new Date();
+    await this.playerRepository.save(player);
+
+    // Check proximity to target
+    let targetDistance ;
+    let targetNearby = false;
+
+
+    if (player.currentTarget?.latitude && player.currentTarget?.longitude) {
+      targetDistance = this.calculateDistance(
+        latitude,
+        longitude,
+        player.currentTarget.latitude,
+        player.currentTarget.longitude,
+      );
+      targetNearby = targetDistance <= this.PROXIMITY_THRESHOLD;
+    }
+
+     
+    return {
+      message: 'Location updated',
+      location: { latitude, longitude },
+      proximity: {
+        targetNearby,
+        targetDistance: targetDistance ? Math.round(targetDistance) : null,
+        
+      },
+    };
+  }
+
+  // Check proximity without updating location
+  async checkProximity(playerId: number) {
+    const player = await this.playerRepository.findOne({
+      where: { id: playerId },
+      relations: ['currentTarget'],
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    if (!player.latitude || !player.longitude) {
+      throw new BadRequestException('Player location not set');
+    }
+
+    let targetDistance ;
+    let targetNearby = false;
+
+    if (player.currentTarget?.latitude && player.currentTarget?.longitude) {
+      targetDistance = this.calculateDistance(
+        player.latitude,
+        player.longitude,
+        player.currentTarget.latitude,
+        player.currentTarget.longitude,
+      );
+      targetNearby = targetDistance <= this.PROXIMITY_THRESHOLD;
+    }
+
+  
+
+    return {
+      targetNearby,
+      targetDistance: targetDistance ? Math.round(targetDistance) : null,
+      targetLocation: player.currentTarget?.latitude && player.currentTarget?.longitude
+        ? {
+            latitude: player.currentTarget.latitude,
+            longitude: player.currentTarget.longitude,
+          }
+        : null,
+      
+    };
+  }
+
+  // Haversine formula - calculate distance between two GPS coordinates
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  }
+
+
+
+
+
 
 
 

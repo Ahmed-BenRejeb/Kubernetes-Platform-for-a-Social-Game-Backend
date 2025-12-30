@@ -21,6 +21,15 @@ export class Player {
   @ManyToOne(() => Game, game => game.players, { nullable: true, onDelete: 'SET NULL' })
   game: Game |  null;
 
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number | null;
+  @Column({ type: 'timestamp', nullable: true })
+  lastLocationUpdate: Date | null;
+
 @ManyToOne(() => Player, { nullable: true, onDelete: 'SET NULL' })
 currentTarget: Player | null;
 

@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PlayerService } from './player.service';
 import { KillTargetDto } from './dto/kill-target.dto';
 import { JoinGameDto } from './dto/join-game.dto';
@@ -38,6 +38,46 @@ export class GamePlayerController {
   return this.playerService.joinStandaloneGame(playerId, gameId);
 }
     
+
+
+
+    @Put(':playerId/location')
+    @ApiOperation({ summary: 'Update player location', description: 'Updates player GPS coordinates and checks proximity to target' })
+    @ApiParam({ name: 'gameId', type: Number, example: 1 })
+    @ApiParam({ name: 'playerId', type: Number, example: 5 })
+    @ApiBody({
+        schema: {
+            properties: {
+                latitude: { type: 'number', example: 37.7749 },
+                longitude: { type: 'number', example: -122.4194 },
+            },
+        },
+    })
+    @ApiResponse({ status: 200, description: 'Location updated, returns proximity info' })
+    @ApiResponse({ status: 404, description: 'Player not found' })
+    updateLocation(
+        @Param('gameId', ParseIntPipe) gameId: number,
+        @Param('playerId', ParseIntPipe) playerId: number,
+        @Body('latitude') latitude: number,
+        @Body('longitude') longitude: number,
+    ) {
+        return this.playerService.updateLocation(playerId, latitude, longitude);
+    }
+
+    @Get(':playerId/proximity')
+    @ApiOperation({ summary: 'Check proximity to target', description: 'Returns distance to target and nearby status' })
+    @ApiParam({ name: 'gameId', type: Number, example: 1 })
+    @ApiParam({ name: 'playerId', type: Number, example: 5 })
+    @ApiResponse({ status: 200, description: 'Proximity information' })
+    checkProximity(
+        @Param('gameId', ParseIntPipe) gameId: number,
+        @Param('playerId', ParseIntPipe) playerId: number,
+    ) {
+        return this.playerService.checkProximity(playerId);
+    }    
+
+
+
     
     
     @Post('join')
