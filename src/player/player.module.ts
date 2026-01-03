@@ -9,6 +9,7 @@ import { GlobalPlayerController } from './global-player.controller';
 @Module({
   imports: [TypeOrmModule.forFeature([Player,Game])],
   providers: [PlayerService],
-  controllers: [GamePlayerController,GlobalPlayerController]
+  controllers: [GamePlayerController,GlobalPlayerController],
+  exports: [PlayerService],
 })
 export class PlayerModule {}

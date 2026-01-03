@@ -7,6 +7,7 @@ import { Game } from './game/game.entity';
 import { GameModule } from './game/game.module';
 import { Player } from './player/player.entity';
 import { PlayerModule } from './player/player.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PlayerModule } from './player/player.module';
     }),
     GameModule,
     PlayerModule,
+    RedisModule,
     
   ],
   controllers: [AppController],

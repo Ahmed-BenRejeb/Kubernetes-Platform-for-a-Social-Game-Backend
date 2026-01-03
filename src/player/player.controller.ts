@@ -53,28 +53,7 @@ export class GamePlayerController {
             },
         },
     })
-    @ApiResponse({ status: 200, description: 'Location updated, returns proximity info' })
-    @ApiResponse({ status: 404, description: 'Player not found' })
-    updateLocation(
-        @Param('gameId', ParseIntPipe) gameId: number,
-        @Param('playerId', ParseIntPipe) playerId: number,
-        @Body('latitude') latitude: number,
-        @Body('longitude') longitude: number,
-    ) {
-        return this.playerService.updateLocation(playerId, latitude, longitude);
-    }
 
-    @Get(':playerId/proximity')
-    @ApiOperation({ summary: 'Check proximity to target', description: 'Returns distance to target and nearby status' })
-    @ApiParam({ name: 'gameId', type: Number, example: 1 })
-    @ApiParam({ name: 'playerId', type: Number, example: 5 })
-    @ApiResponse({ status: 200, description: 'Proximity information' })
-    checkProximity(
-        @Param('gameId', ParseIntPipe) gameId: number,
-        @Param('playerId', ParseIntPipe) playerId: number,
-    ) {
-        return this.playerService.checkProximity(playerId);
-    }    
 
 
 

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Assassin Game Full Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #2c3e50; color: white; display: flex; gap: 20px; }
+        .panel { flex: 1; background: #34495e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        
+        h2 { margin-top: 0; color: #ecf0f1; border-bottom: 2px solid #7f8c8d; padding-bottom: 10px; }
+        label { display: block; margin-top: 10px; color: #bdc3c7; font-size: 0.9em; }
+        input { width: 100%; padding: 8px; margin-top: 5px; background: #2c3e50; border: 1px solid #7f8c8d; color: white; border-radius: 4px; box-sizing: border-box; }
+        
+        button { width: 100%; padding: 12px; margin-top: 15px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
+        .btn-join { background: #3498db; color: white; }
+        .btn-move { background: #27ae60; color: white; }
+        .btn-kill { background: #e74c3c; color: white; display: none; animation: pulse 2s infinite; }
+        
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); } }
+
+        /* MODAL FOR VICTIM */
+        #deathModal { display: none; background: #f39c12; color: #2c3e50; padding: 20px; margin-top: 20px; border-radius: 8px; text-align: center; border: 3px solid #e67e22; }
+        .btn-confirm { background: #c0392b; color: white; width: 45%; }
+        .btn-deny { background: #27ae60; color: white; width: 45%; }
+
+        /* LOGS */
+        #logs { height: 400px; overflow-y: auto; list-style: none; padding: 0; font-family: monospace; font-size: 0.85em; }
+        #logs li { border-bottom: 1px solid #7f8c8d; padding: 5px 0; }
+        .log-time { color: #f1c40f; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <h2>📱 Player Device</h2>
+        
+        <label>Game ID</label>
+        <input type="number" id="gameId" value="18">
+
+        <label>Player ID</label>
+        <input type="number" id="playerId" placeholder="e.g. 24 or 25">
+
+        <button class="btn-join" onclick="joinGame()">1. Join Game Room</button>
+
+        <hr style="border-color: #7f8c8d; margin: 20px 0;">
+
+        <label>Latitude (Lat)</label>
+        <input type="number" id="lat" value="36.8000" step="0.0001">
+        <label>Longitude (Lng)</label>
+        <input type="number" id="lng" value="10.1800" step="0.0001">
+
+        <button class="btn-move" onclick="sendLocation()">2. Update Location</button>
+
+        <button id="killBtn" class="btn-kill" onclick="requestKill()">☠️ ATTEMPT KILL ☠️</button>
+        <div id="hunterStatus" style="margin-top:10px; text-align:center; color:#e74c3c; font-weight:bold;"></div>
+
+        <div id="deathModal">
+            <h3>⚠️ SOMEONE IS TRYING TO KILL YOU! ⚠️</h3>
+            <p>Did your hunter just catch you IRL?</p>
+            <div style="display:flex; justify-content:space-between;">
+                <button class="btn-confirm" onclick="respondKill(true)">YES (I Died)</button>
+                <button class="btn-deny" onclick="respondKill(false)">NO (Liar!)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" style="flex: 1.5;">
+        <h2>📡 Server Events</h2>
+        <ul id="logs"></ul>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000'); 
+        let myHunterId = null; // Stores who is attacking me
+
+        // --- SOCKET LISTENERS ---
+
+        socket.on('connect', () => log('✅ Connected to Server'));
+        
+        socket.on('disconnect', () => log('❌ Disconnected'));
+
+        // 1. Position Updates (For Hunter)
+        socket.on('distanceUpdate', (data) => {
+            const dist = data.targetDistance !== null ? data.targetDistance + 'm' : 'Unknown';
+            log(`📡 RADAR: Distance=${dist} | Nearby=${data.targetNearby}`);
+            
+            const btn = document.getElementById('killBtn');
+            if (data.targetNearby) {
+                btn.style.display = 'block'; // Show Kill Button
+                log('🎯 TARGET IN RANGE! Kill button active.');
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+
+        // 2. Kill Request Received (For Victim)
+        socket.on('killRequest', (data) => {
+            log(`😱 ALERT: Kill Request from Hunter ID ${data.hunterId}`);
+            document.getElementById('deathModal').style.display = 'block';
+            myHunterId = data.hunterId;
+        });
+
+        // 3. Kill Confirmation (For Hunter)
+        socket.on('killConfirmed', (data) => {
+            log('🏆 KILL SUCCESSFUL! Target eliminated.');
+            document.getElementById('hunterStatus').innerText = "✅ Target Eliminated!";
+            document.getElementById('killBtn').style.display = 'none';
+        });
+
+        // 4. Kill Denied (For Hunter)
+        socket.on('killDenied', (data) => {
+            log('🚫 KILL DENIED: Target says they are safe.');
+            document.getElementById('hunterStatus').innerText = "❌ Kill Denied";
+        });
+        
+        // 5. General Game Events
+        socket.on('playerKilled', (data) => {
+            log(`💀 NEWS: Player ${data.victimId} was killed by Player ${data.killerId}`);
+        });
+
+        // --- USER ACTIONS ---
+
+        function joinGame() {
+            const pid = parseInt(document.getElementById('playerId').value);
+            const gid = parseInt(document.getElementById('gameId').value);
+            
+            if(!pid || !gid) return alert("Enter Game ID and Player ID");
+
+            socket.emit('joinGame', { gameId: gid, playerId: pid });
+            log(`➡️ Joining Game ${gid} as Player ${pid}...`);
+        }
+
+        function sendLocation() {
+            const pid = parseInt(document.getElementById('playerId').value);
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lng = parseFloat(document.getElementById('lng').value);
+            
+            socket.emit('updateLocation', { playerId: pid, latitude: lat, longitude: lng });
+            log(`📍 Sent Location: [${lat}, ${lng}]`);
+        }
+
+        function requestKill() {
+            const pid = parseInt(document.getElementById('playerId').value);
+            socket.emit('requestKill', { hunterId: pid });
+            log('⚔️ Sending Kill Request...');
+            document.getElementById('hunterStatus').innerText = "⏳ Waiting for target...";
+        }
+
+        function respondKill(accepted) {
+            const pid = parseInt(document.getElementById('playerId').value);
+            const gid = parseInt(document.getElementById('gameId').value); // We need this now!
+
+            socket.emit('respondToKill', { 
+                gameId: gid, 
+                targetId: pid, 
+                hunterId: myHunterId, 
+                accepted: accepted 
+            });
+
+            document.getElementById('deathModal').style.display = 'none';
+            log(`📤 Responded to kill: ${accepted ? 'CONFIRMED' : 'DENIED'}`);
+        }
+
+        function log(msg) {
+            const ul = document.getElementById('logs');
+            const li = document.createElement('li');
+            const time = new Date().toLocaleTimeString();
+            li.innerHTML = `<span class="log-time">${time}</span> ${msg}`;
+            ul.prepend(li);
+        }
+    </script>
+</body>
+</html>

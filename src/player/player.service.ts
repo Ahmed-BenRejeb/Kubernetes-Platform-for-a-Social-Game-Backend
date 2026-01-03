@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Player } from './player.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Game, GameStatus } from 'src/game/game.entity';
 import { DataSource } from 'typeorm';
+import Redis from 'ioredis/built/Redis';
 
 
 @Injectable()
@@ -14,6 +15,7 @@ export class PlayerService {
     @InjectRepository(Game)
     private gameRepository: Repository<Game>,
     private dataSource: DataSource,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
   ) {}
 
   async getPlayers(gameId: number): Promise<Player[]> {
@@ -23,10 +25,25 @@ export class PlayerService {
     }
     return this.playerRepository.find({
     where: {game: {id:gameId}},
-    relations: ['game', 'currentTarget'],
+    relations: [ 'currentTarget'],  
     select: ['id', 'nickname', 'kills', 'isAlive', 'secretCode'], // Arja3 fasakh l secret code mba3d 
   });
   }
+
+  async getPlayerById(gameId: number, id: number): Promise<Player> {
+    const player = await this.playerRepository.findOne({
+    where: { 
+      id: id,
+      game: { id: gameId } 
+    },
+    relations: ['game'] 
+  });
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+    return player;
+  }
+
 
   async changePlayerNickname( gameId: number|null, playerId: number, newNickname: string) {
     const player = await this.playerRepository.findOne({ where: { id: playerId }, relations: ['game'] });
@@ -339,93 +356,42 @@ async createStandalonePlayer(nickname: string) {
 private readonly PROXIMITY_THRESHOLD = 50; // 50 meters
 
   // Update player location
-  async updateLocation(playerId: number, latitude: number, longitude: number) {
-    const player = await this.playerRepository.findOne({
-      where: { id: playerId },
-      relations: ['game', 'currentTarget'],
-    });
+async processLocationUpdate(playerId: number, lat: number, lng: number) {
+    // 1. Save current player's location to Redis (expires in 1 hour)
+    await this.redis.set(
+      `player:${playerId}:loc`,
+      JSON.stringify({ lat, lng }),
+      'EX', 3600
+    );
 
-    if (!player) {
-      throw new NotFoundException('Player not found');
-    }
-
-    if (!player.game) {
-      throw new BadRequestException('Player is not in a game');
-    }
-
-    // Update location
-    player.latitude = latitude;
-    player.longitude = longitude;
-    player.lastLocationUpdate = new Date();
-    await this.playerRepository.save(player);
-
-    // Check proximity to target
-    let targetDistance ;
-    let targetNearby = false;
-
-
-    if (player.currentTarget?.latitude && player.currentTarget?.longitude) {
-      targetDistance = this.calculateDistance(
-        latitude,
-        longitude,
-        player.currentTarget.latitude,
-        player.currentTarget.longitude,
-      );
-      targetNearby = targetDistance <= this.PROXIMITY_THRESHOLD;
-    }
-
-     
-    return {
-      message: 'Location updated',
-      location: { latitude, longitude },
-      proximity: {
-        targetNearby,
-        targetDistance: targetDistance ? Math.round(targetDistance) : null,
-        
-      },
-    };
-  }
-
-  // Check proximity without updating location
-  async checkProximity(playerId: number) {
+    // 2. Get the player to find who their target is
+    // Optimization: You could cache this relationship in Redis too, but DB is okay for now
+    // as long as we don't WRITE to DB every second.
     const player = await this.playerRepository.findOne({
       where: { id: playerId },
       relations: ['currentTarget'],
     });
 
-    if (!player) {
-      throw new NotFoundException('Player not found');
+    if (!player || !player.currentTarget) {
+      return { targetNearby: false, distance: null };
     }
 
-    if (!player.latitude || !player.longitude) {
-      throw new BadRequestException('Player location not set');
+    // 3. Get TARGET'S location from Redis (Fast!)
+    const targetLocRaw = await this.redis.get(`player:${player.currentTarget.id}:loc`);
+
+    if (!targetLocRaw) {
+      return { targetNearby: false, distance: null }; // Target hasn't moved/connected yet
     }
 
-    let targetDistance ;
-    let targetNearby = false;
+    const targetLoc = JSON.parse(targetLocRaw);
 
-    if (player.currentTarget?.latitude && player.currentTarget?.longitude) {
-      targetDistance = this.calculateDistance(
-        player.latitude,
-        player.longitude,
-        player.currentTarget.latitude,
-        player.currentTarget.longitude,
-      );
-      targetNearby = targetDistance <= this.PROXIMITY_THRESHOLD;
-    }
-
-  
+    // 4. Calculate Distance
+    const distance = this.calculateDistance(lat, lng, targetLoc.lat, targetLoc.lng);
+    const isNearby = distance <= 50; // 50 meters
 
     return {
-      targetNearby,
-      targetDistance: targetDistance ? Math.round(targetDistance) : null,
-      targetLocation: player.currentTarget?.latitude && player.currentTarget?.longitude
-        ? {
-            latitude: player.currentTarget.latitude,
-            longitude: player.currentTarget.longitude,
-          }
-        : null,
-      
+      targetNearby: isNearby,
+      distance: Math.round(distance),
     };
   }
 
@@ -450,7 +416,33 @@ private readonly PROXIMITY_THRESHOLD = 50; // 50 meters
     return R * c; // Distance in meters
   }
 
+  async verifyProximity(hunterId: number) {
+    // 1. Get Hunter Location from Redis
+    const hunterLocRaw = await this.redis.get(`player:${hunterId}:loc`);
+    if (!hunterLocRaw) throw new Error('Location not found');
+    const hunterLoc = JSON.parse(hunterLocRaw);
 
+    // 2. Get Target ID from DB (Fast lookup)
+    const hunter = await this.playerRepository.findOne({
+        where: { id: hunterId },
+        relations: ['currentTarget']
+    });
+    if (!hunter || !hunter.currentTarget) throw new Error('No target found');
+
+    // 3. Get Target Location from Redis
+    const targetLocRaw = await this.redis.get(`player:${hunter.currentTarget.id}:loc`);
+    if (!targetLocRaw) return { isNearby: false, targetId: hunter.currentTarget.id };
+    
+    const targetLoc = JSON.parse(targetLocRaw);
+
+    // 4. Calculate
+    const dist = this.calculateDistance(hunterLoc.lat, hunterLoc.lng, targetLoc.lat, targetLoc.lng);
+    
+    return { 
+        isNearby: dist <= 50, // 50 meters threshold
+        targetId: hunter.currentTarget.id 
+    };
+}
 
 
 

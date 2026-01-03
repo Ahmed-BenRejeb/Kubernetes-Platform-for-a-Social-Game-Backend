@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { Game, GameStatus } from './game.entity';
 import { CreateGameDto } from './dto/create-game.dto';
 import { Player } from 'src/player/player.entity';
+import { GameGateway } from './game.gateway';
 
 @Injectable()
 export class GameService {
@@ -12,6 +13,8 @@ export class GameService {
     private gameRepository: Repository<Game>,
     @InjectRepository(Player)
 private playerRepository: Repository<Player>,
+@Inject(forwardRef(() => GameGateway)) 
+    private gameGateway: GameGateway,
 
   ) {}
 
@@ -74,6 +77,8 @@ private playerRepository: Repository<Player>,
      game.status = GameStatus.RUNNING;
     game.startedAt = new Date();
     await this.gameRepository.save(game);
+     this.gameGateway.notifyGameStarted(id, game);
+
     return game;
   }
 
@@ -102,6 +107,7 @@ private playerRepository: Repository<Player>,
             player.game = null;
         }
         await this.playerRepository.save(players);
+        this.gameGateway.notifyGameFinished(id, winner);
 
         return { game, winner};
     
