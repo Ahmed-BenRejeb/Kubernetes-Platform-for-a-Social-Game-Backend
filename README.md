@@ -1,37 +1,219 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🎮 Killer Game - Real-Life Assassination Game API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A real-world assassination game platform built with **NestJS**, **TypeORM**, **WebSockets**, **Redis**, and **MySQL**. Players use GPS coordinates and real-world interactions to hunt their assigned targets.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🎯 Game Overview
 
-## Description
+**Killer Game** is an outdoor game of strategy, stealth, and social interaction where players must "assassinate" their assigned targets by claiming a personal item from them in real life. The twist? Both players must be honest about the kill for it to count!
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### How It Works
 
-## Project setup
+1. **Game Creation** - A player creates a new game and invites others (minimum 4 players to start)
+2. **Player Assignment** - When the game starts, players are randomly assigned targets in a circular kill chain
+3. **Real-Life Hunt** - Players track their target's location using GPS coordinates shared through the app
+4. **The Kill** - To eliminate your target, you must:
+   - Get within **50 meters** of their location (proximity alert via WebSocket)
+   - Take **any personal item** from them in real life (pen, coat, keychain, etc.)
+   - Have them **confirm the kill** through the app (proof of honesty)
+5. **Target Inheritance** - When you successfully kill someone, you inherit:
+   - Their assigned target as your new target
+   - All their accumulated kills added to your kill count
+6. **Victory** - Last player alive wins the game!
+
+## 🔑 Key Features
+
+- **Real-Time WebSocket Updates**
+  - Game start/finish notifications to all players
+  - Target proximity alerts (< 50 meters)
+  - Real-time location tracking
+  
+- **Circular Kill Chain**
+  - Dynamic target reassignment after each kill
+  - Automatic target reassignment if a chain is broken
+  - Kill inheritance system
+
+- **GPS-Based Gameplay**
+  - Location tracking with Haversine distance formula
+  - 50-meter proximity threshold for kill notifications
+  
+- **Game Management**
+  - Multiple concurrent games
+  - Three game states: WAITING, RUNNING, FINISHED
+  - Persistent game history with leaderboards
+  
+- **Player Management**
+  - Per-game unique nicknames
+  - Secret codes for kill verification
+  - Kill statistics and leaderboards
+  - Both game-specific and standalone players
+
+- **Security**
+  - Basic authentication for Swagger API documentation
+  - Docker containerization with health checks
+  - Redis for caching and real-time data
+
+## 📋 Requirements
+
+- **Node.js** v22+
+- **Docker & Docker Compose**
+- **MySQL** 8.0+
+- **Redis** 7+
+
+## 🚀 Quick Start
+
+### Option 1: Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Setup environment
+cp .env.example .env
+
+# Start services (MySQL & Redis)
+docker-compose up -d
+
+# Run development server
+npm run start:dev
+```
+
+### Option 2: Docker (Recommended)
+
+```bash
+# Start entire stack
+docker-compose up -d --build
+
+# Access Swagger UI
+# URL: http://localhost:3001/api
+# Credentials: admin / admin123
+```
+
+The application will be available at:
+- **API**: http://localhost:3001
+- **Swagger Docs**: http://localhost:3001/api (requires Basic Auth)
+- **WebSocket**: ws://localhost:3001
+
+## 🔧 Environment Variables
+
+```env
+DB_HOST=database
+DB_PORT=
+DB_USERNAME=
+DB_PASSWORD=
+DB_DATABASE=
+PORT=3000
+REDIS_HOST=redis
+REDIS_PORT=
+SWAGGER_USER=
+SWAGGER_PASSWORD=
+```
+
+## 📚 API Endpoints
+
+### Games
+- `POST /games` - Create a new game
+- `GET /games` - List all games
+- `GET /games/:id` - Get game details
+- `POST /games/:id/start` - Start a game
+- `POST /games/:id/finish` - Finish a game
+- `DELETE /games/:id` - Delete a game
+- `GET /games/:id/result` - Get game result with winner
+
+### Players
+- `POST /players` - Create standalone player
+- `GET /players` - List all players
+- `POST /games/:gameId/players` - Add player to game
+- `GET /games/:gameId/players` - Get game players
+- `GET /games/:gameId/players/alive` - Get alive players
+- `GET /games/:gameId/players/leaderboard` - Get leaderboard
+- `PUT /games/:gameId/players/:playerId/location` - Update player location
+- `POST /games/:gameId/players/assign-targets` - Assign initial targets
+- `POST /games/:gameId/players/:playerId/kill` - Kill a player (with secret code)
+- `PATCH /games/:gameId/players/:playerId/nickname` - Change nickname
+
+### WebSocket Events
+
+**Subscribe (Listen)**
+- `gameStarted` - Game has started
+- `gameFinished` - Game finished, winner announced
+- `targetAlert` - Your target is within 50 meters
+- `distanceUpdate` - Distance to your target
+
+**Emit (Send)**
+- `joinGame` - Join a game room
+- `updateLocation` - Send location update
+- `respondToKill` - Confirm or deny a kill attempt
+
+## 🏗️ Project Structure
+
+```
+src/
+├── game/
+│   ├── game.controller.ts      # Game endpoints
+│   ├── game.service.ts         # Game business logic
+│   ├── game.gateway.ts         # WebSocket handlers
+│   ├── game.entity.ts          # Game database entity
+│   └── game.module.ts          # Game module
+├── player/
+│   ├── player.controller.ts    # Player endpoints
+│   ├── player.service.ts       # Player business logic
+│   ├── player.entity.ts        # Player database entity
+│   └── player.module.ts        # Player module
+├── app.module.ts               # Root module
+└── main.ts                     # App bootstrap
+```
+
+## 🗄️ Database Schema
+
+### Games Table
+- `id` - Primary key
+- `code` - Unique game code
+- `status` - WAITING | RUNNING | FINISHED
+- `createdAt` - Game creation timestamp
+- `startedAt` - Game start timestamp
+- `finishedAt` - Game finish timestamp
+- `winner` - Reference to winning player
+
+### Players Table
+- `id` - Primary key
+- `nickname` - Per-game unique nickname
+- `secretCode` - For kill verification
+- `isAlive` - Current alive status
+- `kills` - Kill count
+- `currentTarget` - Assigned target player
+- `latitude` / `longitude` - GPS coordinates
+- `lastLocationUpdate` - Last location update timestamp
+- `game` - Reference to game
+
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Coverage
+npm run test:cov
+```
+
+## 📊 Kill Chain Algorithm
+
+When a player dies, the system automatically:
+1. Finds who was hunting the dead player
+2. Reassigns their target to the next alive player in the chain
+3. Prevents circular references and dead targets
+4. Marks dead player's target as null
+
+## 🛑 Project setup
 
 ```bash
 $ npm install
 ```
 
-## Compile and run the project
+## 🏃 Compile and run the project
 
 ```bash
 # development
@@ -44,7 +226,7 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
-## Run tests
+## 🧪 Run tests
 
 ```bash
 # unit tests
@@ -68,32 +250,4 @@ $ npm install -g @nestjs/mau
 $ mau deploy
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-# mobile_assassination_game
