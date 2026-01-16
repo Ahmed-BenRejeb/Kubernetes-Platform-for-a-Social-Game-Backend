@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: backend:latest
+          image: ahmedbenrejeb0/backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

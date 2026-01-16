@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths-ignore:
-      - 'deployement/**' # Don't run if we only changed the yaml! (Prevents infinite loops)
+      - 'deployement/**'
 
 jobs:
   build:
@@ -24,22 +24,18 @@ jobs:
         with:
           context: .
           push: true
-          # Tag with "latest" AND the specific git commit hash (sha)
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/social-backend:latest
-            ${{ secrets.DOCKER_USERNAME }}/social-backend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/backend:${{ github.sha }}
 
       - name: Update Kubernetes Manifest
         run: |
-          # 1. Configure Git
           git config user.name "GitHub Actions Robot"
           git config user.email "actions@github.com"
 
-          # 2. Edit the deployment file using 'sed'
-          # This replaces the image tag with the new commit hash
-          sed -i "s|image: .*social-backend:.*|image: ${{ secrets.DOCKER_USERNAME }}/social-backend:${{ github.sha }}|g" deployement/backend.yml
+          # CHANGED: The 'sed' command now looks for "backend" instead of "social-backend"
+          sed -i "s|image: .*${{ secrets.DOCKER_USERNAME }}/backend:.*|image: ${{ secrets.DOCKER_USERNAME }}/backend:${{ github.sha }}|g" deployement/backend.yml
 
-          # 3. Commit and Push the change back to the repo
           git add deployement/backend.yml
           git commit -m "Update image tag to ${{ github.sha }}"
           git push
