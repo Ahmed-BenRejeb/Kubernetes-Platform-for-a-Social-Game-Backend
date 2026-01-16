@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common'; // <--- Added imports
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -9,6 +9,7 @@ import { Player } from './player/player.entity';
 import { PlayerModule } from './player/player.module';
 import { RedisModule } from './redis/redis.module';
 import { ChaosModule } from './chaos/chaos.module';
+import { AppLoggerMiddleware } from './logger-middleware'; // <--- Import the new file
 
 @Module({
   imports: [
@@ -25,15 +26,21 @@ import { ChaosModule } from './chaos/chaos.module';
         database: config.get<string>('DB_DATABASE'),
         entities: [Game,Player],
         synchronize: true,
-      }),
+      }), 
     }),
     GameModule,
     PlayerModule,
     RedisModule,
     ChaosModule,
-    
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+// Updated class definition below:
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AppLoggerMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+}

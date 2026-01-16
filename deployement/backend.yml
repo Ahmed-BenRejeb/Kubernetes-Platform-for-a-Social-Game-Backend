@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: backend
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: backend
@@ -23,22 +23,30 @@ spec:
                 name: game-config
             - secretRef:
                 name: game-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
           livenessProbe:
             httpGet:
               path: /
               port: 3000
-            initialDelaySeconds: 15  # Wait 15s for NestJS to boot before asking "Are you alive?"
+            initialDelaySeconds: 30  # Wait 30s for NestJS to boot before asking "Are you alive?"
             periodSeconds: 10        # Check every 10s
-            failureThreshold: 3      # If it fails 3 times (30s), kill it.
+            failureThreshold: 5     # If it fails 5 times (50s), kill it.
 
           readinessProbe:
             httpGet:
               path: /
               port: 3000
             initialDelaySeconds: 10  # Wait 10s before checking "Can you take traffic?"
-            periodSeconds: 5           # Check every 5s
+            periodSeconds: 10           # Check every 5s
             successThreshold: 1      # If it says "OK" once, open the gates!
-            failureThreshold: 3      # If it fails 3 times, close the gates.
+            failureThreshold: 5      # If it fails 3 times, close the gates.
+            timeoutSeconds: 5
 
               
           
