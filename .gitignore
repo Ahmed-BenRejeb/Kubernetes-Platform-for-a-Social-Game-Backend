@@ -59,5 +59,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /k8s-config/secret.yml
 /k8s-config/config-map.yml
 /k8s-config/tls.*
-charts/social-game/templates/secret.yaml
-charts/social-game/templates/tls-secret.yaml
+**/templates/secret.yaml
+**/templates/tls-secret.yaml
