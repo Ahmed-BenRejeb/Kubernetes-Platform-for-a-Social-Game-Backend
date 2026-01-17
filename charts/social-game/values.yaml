@@ -1,7 +1,11 @@
 # charts/social-game/values.yaml
 
 replicaCount: 3
-
+autoscaling:
+  enabled: true
+  minReplicas: 3    
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
 image:
   repository: ahmedbenrejeb0/backend
   tag: 4adbddf2afefcc4df71a84c286438381d2bb7901
