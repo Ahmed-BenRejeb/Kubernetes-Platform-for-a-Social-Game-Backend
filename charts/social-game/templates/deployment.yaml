@@ -3,7 +3,9 @@ kind: Deployment
 metadata:
   name: backend
 spec:
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       app: backend
