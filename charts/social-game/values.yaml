@@ -8,7 +8,7 @@ autoscaling:
   targetCPUUtilizationPercentage: 50
 image:
   repository: ahmedbenrejeb0/backend
-  tag: eeaee90207fc50b850bb54ed5d9908262d519ef1
+  tag: f7c8a103db1e8f7dbf512b7eea1da98009cccdf9
   pullPolicy: Always
 
 service:
