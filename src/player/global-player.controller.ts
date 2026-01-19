@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { PlayerService } from './player.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
@@ -8,11 +8,17 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 export class GlobalPlayerController {
     constructor(private readonly playerService: PlayerService) {}
 
-    @Get()
-    @ApiOperation({ summary: 'Get all players' })
-    getAllPlayers() {
-        return this.playerService.getAllPlayers();
-    }
+@Get()
+  getAllPlayers(
+    // Parse query params (e.g. ?page=2&limit=20)
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+  ) {
+    // Safety check: Don't let users request 10,000 items
+    if (limit > 100) limit = 100;
+
+    return this.playerService.getAllPlayers(page, limit);
+  }
 
     @Post()
     @ApiOperation({ summary: 'Create a standalone player' })

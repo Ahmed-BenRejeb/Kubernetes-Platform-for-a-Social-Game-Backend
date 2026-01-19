@@ -267,11 +267,26 @@ async createStandalonePlayer(nickname: string) {
         }
         return { message: 'All players deleted' };
   }
-  async getAllPlayers(): Promise<Player[]> {
-    return this.playerRepository.find({
-    relations: ['game', 'currentTarget'],
-    select: ['id', 'nickname', 'kills', 'isAlive', 'secretCode'], // Arja3 fasakh l secret code mba3d
-  });
+ async getAllPlayers(page: number = 1, limit: number = 50) {
+    // Calculate how many rows to skip
+    const skip = (page - 1) * limit;
+
+    // Fetch data AND total count
+    const [data, total] = await this.playerRepository.findAndCount({
+      skip: skip,
+      take: limit,
+      order: { id: 'DESC' }, // Optional: Newest first
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        last_page: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getAlivePlayers(gameId: number): Promise<Player[]> {
