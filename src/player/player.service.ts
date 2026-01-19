@@ -275,7 +275,7 @@ async createStandalonePlayer(nickname: string) {
     const [data, total] = await this.playerRepository.findAndCount({
       skip: skip,
       take: limit,
-      order: { id: 'DESC' }, // Optional: Newest first
+     
     });
 
     return {
