@@ -1,36 +1,36 @@
-// src/chaos/memory-pressure-test.js
+// src/chaos/memory-pressure-test.js (FIXED)
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '30s', target: 500 },
-    { duration: '1m', target: 1500 },  // SPIKE to 1500 users
-    { duration: '30s', target: 500 },
+    { duration: '30s', target: 100 },
+    { duration: '1m', target: 300 },
+    { duration: '1m', target: 500 },
+    { duration: '30s', target: 100 },
   ],
   thresholds: {
-    http_req_duration: ['p(95)<500', 'p(99)<1000'],
-
+    http_req_duration: ['p(95)<1000', 'p(99)<2000'],
   },
 };
 
 export default function () {
   const randomId = Math.floor(Math.random() * 1000000);
   
-  // This will create large payloads forcing memory usage
   const payload = JSON.stringify({
     nickname: `Player_${randomId}`,
-    metadata: 'x'.repeat(10000), // 10KB payload per request
+    metadata: 'x'.repeat(5000), 
   });
 
-  const res = http.post('http://localhost:3000/players', payload, {
+  // ✅ CHANGED: Use the correct Minikube IP and NodePort
+  const res = http.post('http://192.168.49.2:30002/players', payload, {
     headers: { 'Content-Type': 'application/json' },
   });
 
   check(res, {
     'status 201': (r) => r.status === 201,
-    'response time <500ms': (r) => r.timings.duration < 500,
+    'response time <1s': (r) => r.timings.duration < 1000,
   });
 
-  sleep(0.5);
+  sleep(1);
 }

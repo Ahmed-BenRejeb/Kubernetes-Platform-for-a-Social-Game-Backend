@@ -5,7 +5,7 @@ autoscaling:
   enabled: true
   minReplicas: 3    
   maxReplicas: 5
-  targetCPUUtilizationPercentage: 50
+  targetCPUUtilizationPercentage: 70
 image:
   repository: ahmedbenrejeb0/backend
   tag: 9fad763f65b8f41f2b1afec1af33f57360cc9e64
