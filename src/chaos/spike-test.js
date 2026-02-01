@@ -15,7 +15,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get('http://192.168.49.2:30002/games');
+  const res = http.get('http://10.109.94.57/players');
   
   check(res, {
     'recovered from spike': (r) => r.status === 200,

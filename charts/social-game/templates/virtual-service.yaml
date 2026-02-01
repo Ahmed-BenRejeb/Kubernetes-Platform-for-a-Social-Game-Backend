@@ -18,6 +18,6 @@ spec:
         port:
           number: {{ .Values.service.port }} 
     retries:      
-      attempts: 3
+      attempts: 1
       perTryTimeout: 2s
       retryOn: gateway-error,connect-failure,refused-stream,503
