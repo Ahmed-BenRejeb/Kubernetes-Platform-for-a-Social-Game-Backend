@@ -20,4 +20,4 @@ spec:
     retries:      
       attempts: 1
       perTryTimeout: 2s
-      retryOn: gateway-error,connect-failure,refused-stream,503
+      retryOn: connect-failure
