@@ -2,7 +2,7 @@ apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
   name: force-all-traces
-  namespace: default
+  namespace: istio-system
 spec:
   tracing:
   - randomSamplingPercentage: 100.00
